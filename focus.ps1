@@ -28,8 +28,12 @@ if (-not $target) { exit }
 $wsh = New-Object -ComObject WScript.Shell
 $wsh.AppActivate($target.Id) | Out-Null   # foco seguro por PID
 
-# botão de ação: envia o dígito para o prompt de permissão do Claude Code
-if ($key -match '^[123]$') {
+# botão de ação: responde o prompt de permissão do Claude Code
+#   1/2 = seleciona a opção correspondente · esc = cancela/rejeita (yes-no ou 3 opções)
+if ($key -eq 'esc') {
+  Start-Sleep -Milliseconds 250
+  $wsh.SendKeys('{ESC}')
+} elseif ($key -match '^[12]$') {
   Start-Sleep -Milliseconds 250
   $wsh.SendKeys($key)
 }

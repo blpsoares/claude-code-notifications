@@ -65,10 +65,21 @@ janela só não é focada; nada é derrubado.
 
 ## 🖱️ Sobre os botões de ação (permissão)
 
-Ao clicar num botão, o handler foca o terminal da sessão e envia a tecla
-correspondente (`1` Sim · `2` Sim e não perguntar · `3` Não) para o prompt.
+Ao clicar num botão, o handler foca o terminal da sessão e envia a tecla ao
+prompt. As teclas foram escolhidas para funcionar **tanto no prompt de 2 opções
+(yes/no) quanto no de 3 opções**:
+
+| Botão | Tecla | Vale para |
+|-------|-------|-----------|
+| ✅ Sim | `1` | a opção 1 é sempre "Yes" nos dois formatos |
+| ⏭️ Sempre | `2` | só existe no prompt de 3 opções (nos de 2, é ignorado) |
+| 🚫 Não | `Esc` | cancela/rejeita o prompt independente do nº de opções |
+
+> Não dá para saber pelo evento quantas opções o prompt tem, por isso o "Não"
+> usa `Esc` (rejeição universal) em vez de um número fixo.
+
 É **best-effort**: depende do terminal ainda estar no prompt de permissão. Se a
-sessão já tiver seguido em frente, a tecla é ignorada pelo prompt.
+sessão já tiver seguido em frente, a tecla é ignorada.
 
 ## 🗑️ Desinstalar
 

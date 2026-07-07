@@ -75,7 +75,9 @@ actions=""
 if [ "$event" = "Notification" ]; then
   a() { printf '<action content="%s" activationType="protocol" arguments="%s"/>' \
         "$(xml_escape "$1")" "$(xml_escape "${PROTOCOL}://answer?key=$2&title=${tenc}")"; }
-  actions="<actions>$(a '✅ Sim' 1)$(a '⏭️ Sempre' 2)$(a '🚫 Não' 3)</actions>"
+  # Sim=1 (sempre a 1ª opção) · Sempre=2 (só no prompt de 3 opções) · Não=Esc
+  # (Esc cancela o prompt independente de ter 2 ou 3 opções).
+  actions="<actions>$(a '✅ Sim' 1)$(a '⏭️ Sempre' 2)$(a '🚫 Não' esc)</actions>"
 fi
 
 xml="<toast launch=\"$(xml_escape "$launch")\" activationType=\"protocol\">
