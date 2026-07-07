@@ -9,25 +9,46 @@
 #   Título = título da sessão (custom-title renomeado, senão o ai-title)
 #   Corpo  = trecho da resposta / mensagem
 #   Rodapé = projeto · branch · hora
-# Logo do mascote do Claude no canto. Som padrão do Windows.
+# Mascote do Claude no corpo, logo da Anthropic no cabeçalho, som padrão.
+#
+# Auto-configura o lado Windows na 1ª execução (copia logos + registra AppID),
+# então funciona tanto instalado como plugin quanto via install.sh.
 #
 # Requisitos: WSL, powershell.exe no PATH, jq.
 
 set -u
 
 MAX_LEN="${CCN_MAX_LEN:-220}"
-LOGO_WIN=""       # preenchido pelo config
-CCN_APP_ID=""     # idem
-
-# config gerado pelo install.sh (AppID registrado + caminho Windows da logo)
 CONFIG="${CCN_CONFIG:-$HOME/.claude/hooks/ccn.config}"
-[ -f "$CONFIG" ] && . "$CONFIG"
-
-# AppID DEVE ser um AUMID registrado, senão o Windows descarta o toast.
-APP_ID="${CCN_APP_ID:-Claude.Code.Notifications}"
+AUMID="Claude.Code.Notifications"
 
 command -v jq >/dev/null 2>&1 || exit 0
 command -v powershell.exe >/dev/null 2>&1 || exit 0
+
+# --- auto-setup do lado Windows (idempotente; roda 1x) -----------------------
+ensure_setup() {
+  [ -f "$CONFIG" ] && return 0
+  local assets la win_win win_wsl
+  # assets: via plugin root, senão relativo a este script
+  assets="${CLAUDE_PLUGIN_ROOT:-}"
+  [ -n "$assets" ] && assets="$assets/assets"
+  [ -d "$assets" ] || assets="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/assets"
+  la="$(powershell.exe -NoProfile -Command '$env:LOCALAPPDATA' 2>/dev/null | tr -d '\r')"
+  [ -z "$la" ] && return 0
+  win_win="${la}\\claude-code-notifications"
+  win_wsl="$(wslpath "$la" 2>/dev/null)/claude-code-notifications"
+  mkdir -p "$win_wsl" "$(dirname "$CONFIG")" 2>/dev/null
+  cp -f "$assets/claude-logo.png" "$win_wsl/claude-logo.png" 2>/dev/null
+  cp -f "$assets/anthropic.png"   "$win_wsl/anthropic.png"   2>/dev/null
+  reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v DisplayName /d "Claude Code" /f >/dev/null 2>&1
+  reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v IconUri /d "${win_win}\\anthropic.png" /f >/dev/null 2>&1
+  { printf "CCN_APP_ID='%s'\n" "$AUMID"; printf "LOGO_WIN='%s'\n" "${win_win}\\claude-logo.png"; } > "$CONFIG"
+}
+ensure_setup
+
+LOGO_WIN=""; CCN_APP_ID=""
+[ -f "$CONFIG" ] && . "$CONFIG"
+APP_ID="${CCN_APP_ID:-$AUMID}"
 
 # --- payload -----------------------------------------------------------------
 payload="$(cat)"
@@ -61,7 +82,7 @@ footer="$project"
 [ -n "$branch" ] && [ "$branch" != "HEAD" ] && footer="$footer · ⎇ $branch"
 footer="$footer · $(date +%H:%M)"
 
-# --- imagem (logo) -----------------------------------------------------------
+# --- imagem (mascote no corpo) ----------------------------------------------
 image=""
 if [ -n "$LOGO_WIN" ]; then
   logo_uri="file:///$(printf '%s' "$LOGO_WIN" | sed 's#\\#/#g')"

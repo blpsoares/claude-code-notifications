@@ -8,7 +8,7 @@ de responder (ou fica aguardando você), um **toast do Windows** aparece com o
 título da sessão, um trecho da resposta e a logo do mascote.
 
 <p align="center">
-  <img src="claude-logo.png" width="96" alt="Claude Code mascot">
+  <img src="assets/claude-logo.png" width="96" alt="Claude Code mascot">
 </p>
 
 ## ✨ O que faz
@@ -35,26 +35,41 @@ Dispara em dois momentos:
 
 ## 🚀 Instalação
 
+### Opção 1 — Plugin (recomendado)
+
+No próprio Claude Code:
+
+```
+/plugin marketplace add blpsoares/claude-code-notifications
+/plugin install claude-code-notifications@blpsoares
+```
+
+O hook é registrado automaticamente — **sem mexer no `settings.json`**. Na 1ª
+execução o script se auto-configura no lado Windows (copia as logos e registra
+o AppID). Pronto.
+
+### Opção 2 — Manual (`install.sh`)
+
 ```bash
 git clone https://github.com/blpsoares/claude-code-notifications.git
 cd claude-code-notifications
 bash install.sh
 ```
 
-Depois, abra o menu **`/hooks`** no Claude Code uma vez (ou reinicie) para
-recarregar as configurações. Pronto — na próxima resposta o toast aparece.
+Depois abra o menu **`/hooks`** (ou reinicie) para recarregar. O instalador é
+**idempotente** e faz **backup** do `settings.json`.
 
-O instalador é **idempotente** (pode rodar de novo sem duplicar nada) e faz
-**backup** do seu `settings.json` antes de mexer.
+> ⚠️ Não use as duas ao mesmo tempo — se instalou pelo `install.sh` e depois quer
+> o plugin, rode `bash uninstall.sh` antes (evita notificação duplicada).
 
 ## 🧠 Como funciona
 
 | Peça | Onde fica | Papel |
 |------|-----------|-------|
-| `ccn-notify.sh` | `~/.claude/hooks/` | Hook `Stop`/`Notification`; lê o JSON do evento, extrai os dados e dispara o toast via `powershell.exe`. |
+| `scripts/notify.sh` | plugin (ou `~/.claude/hooks/`) | Hook `Stop`/`Notification`; lê o JSON do evento, extrai os dados e dispara o toast via `powershell.exe`. Auto-configura o Windows na 1ª execução. |
 | `claude-logo.png` / `anthropic.png` | `%LOCALAPPDATA%\claude-code-notifications\` | Mascote (corpo do toast) e logo Anthropic (ícone do cabeçalho). |
 | AppID `Claude.Code.Notifications` | registro `HKCU` | AUMID registrado (nome "Claude Code" + ícone Anthropic). **Sem isso o Windows descarta o toast.** |
-| hooks `Stop` + `Notification` | `~/.claude/settings.json` | Disparam o hook nos eventos do Claude Code. |
+| `hooks/hooks.json` | plugin | Registra `Stop` + `Notification` automaticamente (plugin). No modo manual, vão para `~/.claude/settings.json`. |
 
 ## ⚙️ Personalização
 

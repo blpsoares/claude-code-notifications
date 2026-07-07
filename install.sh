@@ -27,9 +27,9 @@ HEADER_WIN="${WIN_DIR_WIN}\\anthropic.png"      # logo Anthropic (ícone do AppI
 
 # --- copia arquivos ----------------------------------------------------------
 mkdir -p "$HOOKS_DIR" "$WIN_DIR_WSL"
-install -m 0755 "$REPO_DIR/notify.sh" "$HOOKS_DIR/ccn-notify.sh"
-cp -f "$REPO_DIR/claude-logo.png" "$WIN_DIR_WSL/claude-logo.png"
-cp -f "$REPO_DIR/anthropic.png"   "$WIN_DIR_WSL/anthropic.png"
+install -m 0755 "$REPO_DIR/scripts/notify.sh" "$HOOKS_DIR/ccn-notify.sh"
+cp -f "$REPO_DIR/assets/claude-logo.png" "$WIN_DIR_WSL/claude-logo.png"
+cp -f "$REPO_DIR/assets/anthropic.png"   "$WIN_DIR_WSL/anthropic.png"
 ok "Hook instalado em $HOOKS_DIR (logos em $WIN_DIR_WSL)"
 
 # --- registra o AppID (AUMID) — sem isso o Windows descarta o toast ----------

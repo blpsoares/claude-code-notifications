@@ -1,0 +1,14 @@
+{
+  "name": "blpsoares",
+  "owner": {
+    "name": "Bryan Soares"
+  },
+  "plugins": [
+    {
+      "name": "claude-code-notifications",
+      "description": "Notificações nativas do Windows para o Claude Code rodando no WSL.",
+      "source": "./",
+      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/anthropic.png"
+    }
+  ]
+}
