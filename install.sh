@@ -28,8 +28,9 @@ HEADER_WIN="${WIN_DIR_WIN}\\anthropic.png"      # logo Anthropic (ícone do AppI
 # --- copia arquivos ----------------------------------------------------------
 mkdir -p "$HOOKS_DIR" "$WIN_DIR_WSL"
 install -m 0755 "$REPO_DIR/scripts/notify.sh" "$HOOKS_DIR/ccn-notify.sh"
-cp -f "$REPO_DIR/assets/claude-logo.png" "$WIN_DIR_WSL/claude-logo.png"
-cp -f "$REPO_DIR/assets/anthropic.png"   "$WIN_DIR_WSL/anthropic.png"
+cp -f "$REPO_DIR/assets/claude-logo.png"  "$WIN_DIR_WSL/claude-logo.png"
+cp -f "$REPO_DIR/assets/anthropic.png"    "$WIN_DIR_WSL/anthropic.png"
+cp -f "$REPO_DIR/assets/sounds/Cloud.wav" "$WIN_DIR_WSL/Cloud.wav"
 ok "Hook instalado em $HOOKS_DIR (logos em $WIN_DIR_WSL)"
 
 # --- registra o AppID (AUMID) — sem isso o Windows descarta o toast ----------
@@ -40,7 +41,9 @@ reg.exe add "$AUMID_KEY" /v IconUri /d "$HEADER_WIN" /f >/dev/null
 ok "AppID '$AUMID' registrado (nome + ícone Anthropic no cabeçalho)"
 
 # --- config (AppID + caminho da logo p/ o notify.sh) -------------------------
-{ printf "CCN_APP_ID='%s'\n" "$AUMID"; printf "LOGO_WIN='%s'\n" "$LOGO_WIN"; } > "$CONFIG"
+{ printf "CCN_APP_ID='%s'\n" "$AUMID"
+  printf "LOGO_WIN='%s'\n" "$LOGO_WIN"
+  printf "CCN_DEFAULT_WAV='%s'\n" "${WIN_DIR_WIN}\\Cloud.wav"; } > "$CONFIG"
 ok "Config gravado em $CONFIG"
 
 # --- merge dos hooks no settings.json (idempotente + backup) -----------------

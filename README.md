@@ -77,7 +77,10 @@ Adicione as variáveis no `~/.claude/hooks/ccn.config`:
 
 ### 🔊 Som
 
-**Sons prontos do Windows** via `CCN_SOUND` (padrão: `Notification.Default`):
+O som **padrão** é o `Cloud.wav` (empacotado no plugin — um toque suave e aéreo).
+Para trocar:
+
+**Sons prontos do Windows** via `CCN_SOUND`:
 
 ```bash
 CCN_SOUND='ms-winsoundevent:Notification.IM'          # mensagem

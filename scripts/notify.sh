@@ -27,7 +27,8 @@ command -v powershell.exe >/dev/null 2>&1 || exit 0
 
 # --- auto-setup do lado Windows (idempotente; roda 1x) -----------------------
 ensure_setup() {
-  [ -f "$CONFIG" ] && return 0
+  # já configurado (e com o som padrão) -> nada a fazer
+  [ -f "$CONFIG" ] && grep -q CCN_DEFAULT_WAV "$CONFIG" && return 0
   local assets la win_win win_wsl
   # assets: via plugin root, senão relativo a este script
   assets="${CLAUDE_PLUGIN_ROOT:-}"
@@ -38,11 +39,14 @@ ensure_setup() {
   win_win="${la}\\claude-code-notifications"
   win_wsl="$(wslpath "$la" 2>/dev/null)/claude-code-notifications"
   mkdir -p "$win_wsl" "$(dirname "$CONFIG")" 2>/dev/null
-  cp -f "$assets/claude-logo.png" "$win_wsl/claude-logo.png" 2>/dev/null
-  cp -f "$assets/anthropic.png"   "$win_wsl/anthropic.png"   2>/dev/null
+  cp -f "$assets/claude-logo.png"     "$win_wsl/claude-logo.png" 2>/dev/null
+  cp -f "$assets/anthropic.png"       "$win_wsl/anthropic.png"   2>/dev/null
+  cp -f "$assets/sounds/Cloud.wav"    "$win_wsl/Cloud.wav"       2>/dev/null
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v DisplayName /d "Claude Code" /f >/dev/null 2>&1
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v IconUri /d "${win_win}\\anthropic.png" /f >/dev/null 2>&1
-  { printf "CCN_APP_ID='%s'\n" "$AUMID"; printf "LOGO_WIN='%s'\n" "${win_win}\\claude-logo.png"; } > "$CONFIG"
+  { printf "CCN_APP_ID='%s'\n" "$AUMID"
+    printf "LOGO_WIN='%s'\n" "${win_win}\\claude-logo.png"
+    printf "CCN_DEFAULT_WAV='%s'\n" "${win_win}\\Cloud.wav"; } > "$CONFIG"
 }
 ensure_setup
 
@@ -90,17 +94,20 @@ if [ -n "$LOGO_WIN" ]; then
 fi
 
 # --- som ---------------------------------------------------------------------
-# Prioridade: CCN_SOUND_FILE (.wav custom) > CCN_SOUND (evento do Windows) > padrão.
-# CCN_SOUND=silent deixa mudo. CCN_SOUND_FILE aceita caminho WSL ou Windows.
+# Prioridade: CCN_SOUND_FILE (.wav custom) > CCN_SOUND (evento do Windows) >
+# som padrão empacotado (Cloud.wav). CCN_SOUND=silent deixa mudo.
 custom_wav=""
 if [ -n "${CCN_SOUND_FILE:-}" ]; then
   case "$CCN_SOUND_FILE" in
     /*) custom_wav="$(wslpath -w "$CCN_SOUND_FILE" 2>/dev/null)";;
     *)  custom_wav="$CCN_SOUND_FILE";;
   esac
+elif [ -z "${CCN_SOUND:-}" ] && [ -n "${CCN_DEFAULT_WAV:-}" ]; then
+  custom_wav="$CCN_DEFAULT_WAV"     # padrão = Cloud.wav (já é caminho Windows)
 fi
+
 if [ -n "$custom_wav" ] || [ "${CCN_SOUND:-}" = "silent" ]; then
-  audio='<audio silent="true"/>'   # o wav custom é tocado separadamente
+  audio='<audio silent="true"/>'    # o wav é tocado à parte via SoundPlayer
 else
   audio="<audio src=\"$(xml_escape "${CCN_SOUND:-ms-winsoundevent:Notification.Default}")\"/>"
 fi
