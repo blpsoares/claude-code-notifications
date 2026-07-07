@@ -59,8 +59,12 @@ janela só não é focada; nada é derrubado.
 
 ## ⚙️ Personalização
 
-- **Tamanho do trecho**: variável `CCN_MAX_LEN` (padrão `220`). Ex.: no
-  `~/.claude/hooks/ccn.config` adicione `CCN_MAX_LEN=120`.
+Adicione as variáveis no `~/.claude/hooks/ccn.config`:
+
+- **Som**: `CCN_SOUND='ms-winsoundevent:Notification.Default'` (padrão). Use
+  `CCN_SOUND=silent` para toast mudo, ou outro
+  [evento de som do Windows](https://learn.microsoft.com/windows/apps/design/shell/tiles-and-notifications/toast-audio).
+- **Tamanho do trecho**: `CCN_MAX_LEN=120` (padrão `220`).
 - **Textos/emojis dos botões**: edite a função `a()` em `notify.sh` e reinstale.
 
 ## 🖱️ Sobre os botões de ação (permissão)

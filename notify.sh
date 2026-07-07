@@ -83,6 +83,15 @@ if [ "$event" = "Notification" ]; then
   actions="<actions>$(a '✅ Sim' 1)$(a '⏭️ Sempre' 2)$(a '🚫 Não' esc)</actions>"
 fi
 
+# som explícito (padrão do Windows). Personalize com CCN_SOUND no ccn.config;
+# use CCN_SOUND=silent para um toast mudo.
+sound_src="${CCN_SOUND:-ms-winsoundevent:Notification.Default}"
+if [ "$sound_src" = "silent" ]; then
+  audio='<audio silent="true"/>'
+else
+  audio="<audio src=\"$(xml_escape "$sound_src")\"/>"
+fi
+
 xml="<toast launch=\"$(xml_escape "$launch")\" activationType=\"protocol\">
   <visual><binding template=\"ToastGeneric\">
     ${image}
@@ -90,6 +99,7 @@ xml="<toast launch=\"$(xml_escape "$launch")\" activationType=\"protocol\">
     <text>$(xml_escape "$body")</text>
     <text placement=\"attribution\">$(xml_escape "$footer")</text>
   </binding></visual>
+  ${audio}
   ${actions}
 </toast>"
 
