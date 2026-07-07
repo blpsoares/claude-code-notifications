@@ -70,10 +70,10 @@ title="$(tjq '([.[] | select(.type=="custom-title") | .customTitle] | last) // (
 
 # --- corpo -------------------------------------------------------------------
 if [ "$event" = "Notification" ]; then
-  body="$(get '.message')"; [ -z "$body" ] && body="Aguardando sua ação 👀"
+  body="$(get '.message')"; [ -z "$body" ] && body="Aguardando sua ação"
 else
   body="$(tjq '[.[] | select(.type=="assistant" and (.message.content|type=="array") and (.message.content|any(.type=="text")))] | last | .message.content | map(select(.type=="text")|.text) | join(" ")')"
-  [ -z "$body" ] && body="Terminou de responder ✅"
+  [ -z "$body" ] && body="Terminou de responder"
 fi
 body="$(printf '%s' "$body" | tr '\n' ' ' | sed 's/  */ /g; s/^ //; s/ $//')"
 [ "${#body}" -gt "$MAX_LEN" ] && body="$(printf '%s' "$body" | cut -c1-"$MAX_LEN")…"
