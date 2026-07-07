@@ -8,11 +8,19 @@
 # Extrai do JSON do hook (stdin):
 #   Título = título da sessão (custom-title renomeado, senão o ai-title)
 #   Corpo  = trecho da resposta / mensagem
-#   Rodapé = projeto · branch · hora
-# Mascote do Claude no corpo, logo da Anthropic no cabeçalho, som padrão.
+#   Rodapé = projeto · branch · hora [· duração]
+# Mascote no corpo, logo da Anthropic no cabeçalho, som por evento.
 #
-# Auto-configura o lado Windows na 1ª execução (copia logos + registra AppID),
-# então funciona tanto instalado como plugin quanto via install.sh.
+# Auto-configura o lado Windows na 1ª execução (copia assets + registra AppID),
+# então funciona tanto como plugin quanto via install.sh.
+#
+# Variáveis (em ~/.claude/hooks/ccn.config ou no ambiente):
+#   CCN_ENABLED=0        desliga as notificações
+#   CCN_MIN_SECONDS=N    no Stop, só notifica se a resposta demorou >= N seg
+#   CCN_SHOW_DURATION=0  não mostra a duração no rodapé
+#   CCN_SOUND=...        evento ms-winsoundevent, ou 'silent'
+#   CCN_SOUND_FILE=...   .wav próprio (tem prioridade sobre CCN_SOUND)
+#   CCN_MAX_LEN=N        tamanho do trecho (padrão 220)
 #
 # Requisitos: WSL, powershell.exe no PATH, jq.
 
@@ -25,12 +33,10 @@ AUMID="Claude.Code.Notifications"
 command -v jq >/dev/null 2>&1 || exit 0
 command -v powershell.exe >/dev/null 2>&1 || exit 0
 
-# --- auto-setup do lado Windows (idempotente; roda 1x) -----------------------
+# --- auto-setup do lado Windows (idempotente; roda 1x por versão de config) ---
 ensure_setup() {
-  # já configurado (e com o som padrão) -> nada a fazer
-  [ -f "$CONFIG" ] && grep -q CCN_DEFAULT_WAV "$CONFIG" && return 0
+  [ -f "$CONFIG" ] && grep -q CCN_ALERT_WAV "$CONFIG" && return 0
   local assets la win_win win_wsl
-  # assets: via plugin root, senão relativo a este script
   assets="${CLAUDE_PLUGIN_ROOT:-}"
   [ -n "$assets" ] && assets="$assets/assets"
   [ -d "$assets" ] || assets="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/assets"
@@ -42,17 +48,22 @@ ensure_setup() {
   cp -f "$assets/claude-logo.png"     "$win_wsl/claude-logo.png" 2>/dev/null
   cp -f "$assets/anthropic.png"       "$win_wsl/anthropic.png"   2>/dev/null
   cp -f "$assets/sounds/Cloud.wav"    "$win_wsl/Cloud.wav"       2>/dev/null
+  cp -f "$assets/sounds/Alert.wav"    "$win_wsl/Alert.wav"       2>/dev/null
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v DisplayName /d "Claude Code" /f >/dev/null 2>&1
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v IconUri /d "${win_win}\\anthropic.png" /f >/dev/null 2>&1
   { printf "CCN_APP_ID='%s'\n" "$AUMID"
     printf "LOGO_WIN='%s'\n" "${win_win}\\claude-logo.png"
-    printf "CCN_DEFAULT_WAV='%s'\n" "${win_win}\\Cloud.wav"; } > "$CONFIG"
+    printf "CCN_DEFAULT_WAV='%s'\n" "${win_win}\\Cloud.wav"
+    printf "CCN_ALERT_WAV='%s'\n" "${win_win}\\Alert.wav"; } > "$CONFIG"
 }
 ensure_setup
 
-LOGO_WIN=""; CCN_APP_ID=""
+LOGO_WIN=""; CCN_APP_ID=""; CCN_DEFAULT_WAV=""; CCN_ALERT_WAV=""
 [ -f "$CONFIG" ] && . "$CONFIG"
 APP_ID="${CCN_APP_ID:-$AUMID}"
+
+# desligado?
+[ "${CCN_ENABLED:-1}" = "0" ] && exit 0
 
 # --- payload -----------------------------------------------------------------
 payload="$(cat)"
@@ -64,7 +75,25 @@ cwd="$(get '.cwd')"; [ -z "$cwd" ] && cwd="$PWD"
 tjq() { [ -n "$transcript" ] && [ -f "$transcript" ] && jq -rs "$1" "$transcript" 2>/dev/null; }
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' -e "s/'/\&apos;/g"; }
 
-# --- título (custom-title renomeado tem precedência sobre o ai-title) ---------
+# --- duração do turno (do último prompt humano até agora; só no Stop) ---------
+turn_secs=""
+if [ "$event" != "Notification" ]; then
+  start_ts="$(tjq '[.[] | select(.type=="user") | select((.message.content|tostring)|test("tool_result")|not) | .timestamp] | last // empty')"
+  if [ -n "$start_ts" ]; then
+    se="$(date -d "$start_ts" +%s 2>/dev/null || true)"
+    [ -n "$se" ] && turn_secs=$(( $(date +%s) - se ))
+    [ -n "$turn_secs" ] && [ "$turn_secs" -lt 0 ] && turn_secs=""
+  fi
+fi
+
+# --- filtro por duração (só Stop) --------------------------------------------
+min_s="${CCN_MIN_SECONDS:-0}"
+if [ "$event" != "Notification" ] && [ -n "$turn_secs" ] \
+   && [ "$min_s" -gt 0 ] && [ "$turn_secs" -lt "$min_s" ]; then
+  exit 0
+fi
+
+# --- título ------------------------------------------------------------------
 title="$(tjq '([.[] | select(.type=="custom-title") | .customTitle] | last) // ([.[] | select(.type=="ai-title") | .aiTitle] | last) // empty')"
 [ -z "$title" ] && title="$(basename "$cwd")"
 
@@ -78,13 +107,17 @@ fi
 body="$(printf '%s' "$body" | tr '\n' ' ' | sed 's/  */ /g; s/^ //; s/ $//')"
 [ "${#body}" -gt "$MAX_LEN" ] && body="$(printf '%s' "$body" | cut -c1-"$MAX_LEN")…"
 
-# --- rodapé ------------------------------------------------------------------
+# --- rodapé: projeto · branch · hora [· duração] -----------------------------
+fmt_dur() { if [ "$1" -ge 60 ]; then printf '%dm%02ds' "$(($1/60))" "$(($1%60))"; else printf '%ds' "$1"; fi; }
 project="$(basename "$cwd")"
 branch="$(tjq '[.[] | .gitBranch // empty] | last // empty')"
 [ -z "$branch" ] && branch="$(git -C "$cwd" branch --show-current 2>/dev/null)"
 footer="$project"
 [ -n "$branch" ] && [ "$branch" != "HEAD" ] && footer="$footer · ⎇ $branch"
 footer="$footer · $(date +%H:%M)"
+if [ "${CCN_SHOW_DURATION:-1}" != "0" ] && [ -n "$turn_secs" ]; then
+  footer="$footer · $(fmt_dur "$turn_secs")"
+fi
 
 # --- imagem (mascote no corpo) ----------------------------------------------
 image=""
@@ -93,21 +126,21 @@ if [ -n "$LOGO_WIN" ]; then
   image="<image placement=\"appLogoOverride\" src=\"$(xml_escape "$logo_uri")\"/>"
 fi
 
-# --- som ---------------------------------------------------------------------
-# Prioridade: CCN_SOUND_FILE (.wav custom) > CCN_SOUND (evento do Windows) >
-# som padrão empacotado (Cloud.wav). CCN_SOUND=silent deixa mudo.
+# --- som (padrão depende do evento; overrides globais preservados) -----------
+# Prioridade: CCN_SOUND_FILE > CCN_SOUND > som padrão do evento
+# (Stop = Cloud, Notification = Alert). CCN_SOUND=silent deixa mudo.
+if [ "$event" = "Notification" ]; then ev_default="$CCN_ALERT_WAV"; else ev_default="$CCN_DEFAULT_WAV"; fi
 custom_wav=""
 if [ -n "${CCN_SOUND_FILE:-}" ]; then
   case "$CCN_SOUND_FILE" in
     /*) custom_wav="$(wslpath -w "$CCN_SOUND_FILE" 2>/dev/null)";;
     *)  custom_wav="$CCN_SOUND_FILE";;
   esac
-elif [ -z "${CCN_SOUND:-}" ] && [ -n "${CCN_DEFAULT_WAV:-}" ]; then
-  custom_wav="$CCN_DEFAULT_WAV"     # padrão = Cloud.wav (já é caminho Windows)
+elif [ -z "${CCN_SOUND:-}" ] && [ -n "$ev_default" ]; then
+  custom_wav="$ev_default"
 fi
-
 if [ -n "$custom_wav" ] || [ "${CCN_SOUND:-}" = "silent" ]; then
-  audio='<audio silent="true"/>'    # o wav é tocado à parte via SoundPlayer
+  audio='<audio silent="true"/>'
 else
   audio="<audio src=\"$(xml_escape "${CCN_SOUND:-ms-winsoundevent:Notification.Default}")\"/>"
 fi

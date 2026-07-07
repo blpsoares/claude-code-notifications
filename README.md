@@ -18,7 +18,10 @@ sessão, um trecho da resposta e a logo do mascote.
 - Corpo: trecho da última resposta do Claude (ou a mensagem do prompt).
 - Rodapé: projeto, branch git e hora.
 - Mascote do Claude no corpo e logo da Anthropic no cabeçalho.
-- Som configurável (padrão: `Cloud.wav`, empacotado).
+- Som distinto por evento: `Cloud` ao terminar, `Alert` ao aguardar você.
+- Tempo da resposta no rodapé (ex.: `2m30s`).
+- Filtro por duração: opcionalmente só notifica respostas que demoraram.
+- Comando `/ccn` para configurar tudo sem editar arquivo.
 
 Dispara em dois momentos:
 
@@ -69,13 +72,33 @@ duplicada.
 |------|-----------|-------|
 | `scripts/notify.sh` | plugin (ou `~/.claude/hooks/`) | Hook `Stop`/`Notification`; lê o JSON do evento, extrai os dados e dispara o toast via `powershell.exe`. Auto-configura o Windows na primeira execução. |
 | `claude-logo.png` / `anthropic.png` | `%LOCALAPPDATA%\claude-code-notifications\` | Mascote (corpo do toast) e logo Anthropic (ícone do cabeçalho). |
-| `Cloud.wav` | `%LOCALAPPDATA%\claude-code-notifications\` | Som padrão da notificação. |
+| `Cloud.wav` / `Alert.wav` | `%LOCALAPPDATA%\claude-code-notifications\` | Sons padrão: `Cloud` ao terminar, `Alert` ao aguardar você. |
+| `scripts/ccn-config.sh` + `commands/ccn.md` | plugin | Implementam o comando `/ccn`. |
 | AppID `Claude.Code.Notifications` | registro `HKCU` | AUMID registrado (nome "Claude Code" + ícone Anthropic). Sem isso o Windows descarta o toast. |
 | `hooks/hooks.json` | plugin | Registra `Stop` + `Notification` automaticamente. No modo manual, vão para `~/.claude/settings.json`. |
 
+## Comando `/ccn`
+
+Com o plugin instalado, configure sem editar arquivo:
+
+```
+/ccn status              mostra a configuração atual
+/ccn on | off            liga/desliga as notificações
+/ccn test                dispara um toast de teste
+/ccn threshold 30        só notifica no Stop se a resposta demorou >= 30s
+/ccn duration on|off     mostra/oculta a duração no rodapé
+/ccn sound <nome>        default | silent | im | mail | reminder | alarm | call
+/ccn sound-file <path>   usa um .wav próprio
+```
+
 ## Personalização
 
-Adicione as variáveis no `~/.claude/hooks/ccn.config`.
+Alternativa ao `/ccn`: as variáveis no `~/.claude/hooks/ccn.config`.
+
+- `CCN_ENABLED=0` desliga as notificações.
+- `CCN_MIN_SECONDS=30` no `Stop`, só notifica se a resposta demorou >= 30s
+  (padrão `0`, sempre). Não afeta o `Notification`.
+- `CCN_SHOW_DURATION=0` oculta a duração no rodapé.
 
 ### Som
 
