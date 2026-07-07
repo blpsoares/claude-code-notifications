@@ -7,7 +7,6 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS="$HOME/.claude/settings.json"
 CONFIG="$HOOKS_DIR/ccn.config"
-PROTOCOL="claudecodenotify"
 
 info() { printf '\033[36m›\033[0m %s\n' "$1"; }
 ok()   { printf '\033[32m✓\033[0m %s\n' "$1"; }
@@ -24,14 +23,12 @@ LOCALAPPDATA_WIN="$(powershell.exe -NoProfile -Command '$env:LOCALAPPDATA' 2>/de
 WIN_DIR_WIN="${LOCALAPPDATA_WIN}\\claude-code-notifications"
 WIN_DIR_WSL="$(wslpath "$LOCALAPPDATA_WIN")/claude-code-notifications"
 LOGO_WIN="${WIN_DIR_WIN}\\claude-logo.png"
-FOCUS_WIN="${WIN_DIR_WIN}\\focus.ps1"
 
 # --- copia arquivos ----------------------------------------------------------
 mkdir -p "$HOOKS_DIR" "$WIN_DIR_WSL"
 install -m 0755 "$REPO_DIR/notify.sh" "$HOOKS_DIR/ccn-notify.sh"
-cp -f "$REPO_DIR/focus.ps1"      "$WIN_DIR_WSL/focus.ps1"
 cp -f "$REPO_DIR/claude-logo.png" "$WIN_DIR_WSL/claude-logo.png"
-ok "Scripts instalados (hook em $HOOKS_DIR, handler em $WIN_DIR_WSL)"
+ok "Hook instalado em $HOOKS_DIR (logo em $WIN_DIR_WSL)"
 
 # --- registra o AppID (AUMID) — sem isso o Windows descarta o toast ----------
 AUMID="Claude.Code.Notifications"
@@ -43,13 +40,6 @@ ok "AppID '$AUMID' registrado (nome + ícone no Centro de Notificações)"
 # --- config (AppID + caminho da logo p/ o notify.sh) -------------------------
 { printf "CCN_APP_ID='%s'\n" "$AUMID"; printf "LOGO_WIN='%s'\n" "$LOGO_WIN"; } > "$CONFIG"
 ok "Config gravado em $CONFIG"
-
-# --- registra protocolo (clique/botões) --------------------------------------
-CMD="powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"$FOCUS_WIN\" \"%1\""
-reg.exe add "HKCU\\Software\\Classes\\$PROTOCOL" /ve /d "URL:Claude Code Notify" /f >/dev/null
-reg.exe add "HKCU\\Software\\Classes\\$PROTOCOL" /v "URL Protocol" /d "" /f >/dev/null
-reg.exe add "HKCU\\Software\\Classes\\$PROTOCOL\\shell\\open\\command" /ve /d "$CMD" /f >/dev/null
-ok "Protocolo $PROTOCOL:// registrado (clicar foca o terminal / botões respondem)"
 
 # --- merge dos hooks no settings.json (idempotente + backup) -----------------
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"

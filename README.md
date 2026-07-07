@@ -18,10 +18,14 @@ título da sessão, um trecho da resposta e a logo do mascote.
 - 💬 **Corpo** = trecho da última resposta do Claude (ou a mensagem do prompt).
 - 📌 **Rodapé** = projeto · branch git · hora.
 - 🐤 **Logo** do mascote do Claude no canto.
-- 🖱️ **Clique** na notificação → **foca o terminal** da sessão (WSL ou CMD —
-  casa pela correspondência de título da janela).
-- ✅ **Botões de ação** quando o Claude pede permissão: **Sim / Sempre / Não**
-  respondem o prompt direto pela notificação.
+- 🔊 **Som** padrão do Windows (configurável, ou mudo).
+
+Dispara em dois momentos:
+
+| Evento | Quando | Corpo |
+|--------|--------|-------|
+| `Stop` | Claude termina de responder | trecho da última resposta |
+| `Notification` | Claude fica aguardando você (ex.: pedido de permissão) | mensagem do Claude |
 
 ## 📦 Requisitos
 
@@ -48,14 +52,9 @@ O instalador é **idempotente** (pode rodar de novo sem duplicar nada) e faz
 | Peça | Onde fica | Papel |
 |------|-----------|-------|
 | `ccn-notify.sh` | `~/.claude/hooks/` | Hook `Stop`/`Notification`; lê o JSON do evento, extrai os dados e dispara o toast via `powershell.exe`. |
-| `focus.ps1` | `%LOCALAPPDATA%\claude-code-notifications\` | Handler do protocolo `claudecodenotify://`; foca o terminal e (nos botões) responde o prompt. |
-| `claude-logo.png` | idem | Logo exibida no toast. |
-| protocolo `claudecodenotify://` | registro `HKCU` | Faz o clique/botões chamarem o `focus.ps1`. |
+| `claude-logo.png` | `%LOCALAPPDATA%\claude-code-notifications\` | Logo exibida no toast. |
+| AppID `Claude.Code.Notifications` | registro `HKCU` | AUMID registrado (nome + ícone). **Sem isso o Windows descarta o toast.** |
 | hooks `Stop` + `Notification` | `~/.claude/settings.json` | Disparam o hook nos eventos do Claude Code. |
-
-O foco de janela usa `WScript.Shell.AppActivate` (método seguro do Windows).
-**Não** usa o truque `AttachThreadInput` de "roubo de foco" — no pior caso a
-janela só não é focada; nada é derrubado.
 
 ## ⚙️ Personalização
 
@@ -65,40 +64,34 @@ Adicione as variáveis no `~/.claude/hooks/ccn.config`:
   `CCN_SOUND=silent` para toast mudo, ou outro
   [evento de som do Windows](https://learn.microsoft.com/windows/apps/design/shell/tiles-and-notifications/toast-audio).
 - **Tamanho do trecho**: `CCN_MAX_LEN=120` (padrão `220`).
-- **Textos/emojis dos botões**: edite a função `a()` em `notify.sh` e reinstale.
-
-## 🖱️ Sobre os botões de ação (permissão)
-
-Ao clicar num botão, o handler foca o terminal da sessão e envia a tecla ao
-prompt. As teclas foram escolhidas para funcionar **tanto no prompt de 2 opções
-(yes/no) quanto no de 3 opções**:
-
-| Botão | Tecla | Vale para |
-|-------|-------|-----------|
-| ✅ Sim | `1` | a opção 1 é sempre "Yes" nos dois formatos |
-| ⏭️ Sempre | `2` | só existe no prompt de 3 opções (nos de 2, é ignorado) |
-| 🚫 Não | `Esc` | cancela/rejeita o prompt independente do nº de opções |
-
-> Não dá para saber pelo evento quantas opções o prompt tem, por isso o "Não"
-> usa `Esc` (rejeição universal) em vez de um número fixo.
-
-É **best-effort**: depende do terminal ainda estar no prompt de permissão. Se a
-sessão já tiver seguido em frente, a tecla é ignorada.
 
 ## 🩺 Não aparece nada?
 
 Na ordem mais comum:
 
-1. **Notificações silenciadas / Assistente de Foco (Não Perturbe).** É o
+1. **Notificações silenciadas / Não Perturbe (Assistente de Foco).** É o
    suspeito nº 1. Vá em **Configurações → Sistema → Notificações**, garanta que
-   estão **ligadas** e que o **Assistente de Foco** está desativado (ou libere o
-   app "Claude Code" na lista de prioridade).
+   estão **ligadas** e desative o **Não Perturbe** — inclusive as regras de
+   *ativar automaticamente* (ao jogar / app em tela cheia / duplicar a tela),
+   que silenciam tudo sem avisar.
 2. **Config não recarregada.** Se você acabou de instalar, abra o menu
-   **`/hooks`** no Claude Code uma vez (ou reinicie) pra recarregar o
-   `settings.json`.
-3. **AppID.** Este projeto registra o AUMID `Claude.Code.Notifications` para que
-   o Windows aceite e exiba o toast — toasts de AppIDs não registrados são
-   descartados silenciosamente. O `install.sh` já cuida disso.
+   **`/hooks`** no Claude Code uma vez (ou reinicie).
+3. **AppID.** O `install.sh` registra o AUMID `Claude.Code.Notifications` para
+   que o Windows aceite o toast (toasts de AppID não registrado são descartados
+   silenciosamente).
+
+## ❓ E clicar na notificação pra ir pro terminal / responder permissão por ali?
+
+Foi avaliado e **removido de propósito**. O Windows Terminal roda todas as abas
+numa **única janela** e **não expõe API para ativar uma aba específica** — só dá
+pra focar a *janela*, não a aba. Como consequência:
+
+- "Pular pra aba da sessão" só funcionaria se aquela aba já fosse a ativa.
+- Botões de resposta enviariam a tecla para **qualquer aba que estivesse ativa**,
+  podendo responder a **sessão errada**.
+
+Por segurança e confiabilidade, o projeto foca no que funciona 100%: **avisar
+você na hora certa**.
 
 ## 🗑️ Desinstalar
 
@@ -106,7 +99,7 @@ Na ordem mais comum:
 bash uninstall.sh
 ```
 
-Remove os hooks (com backup), desregistra o protocolo e apaga o script do hook.
+Remove os hooks (com backup) e o AppID registrado.
 
 ## 📄 Licença
 

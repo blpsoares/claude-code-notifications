@@ -3,22 +3,20 @@
 # Toast nativo do Windows (a partir do WSL) para eventos do Claude Code.
 #
 # Stop         -> "terminou de responder", corpo = trecho da última resposta.
-# Notification -> "aguardando você", corpo = mensagem do Claude + botões de ação.
+# Notification -> "aguardando você", corpo = mensagem do Claude.
 #
 # Extrai do JSON do hook (stdin):
-#   Título = título da sessão (aiTitle) == título da aba do terminal
+#   Título = título da sessão (aiTitle)
 #   Corpo  = trecho da resposta / mensagem
 #   Rodapé = projeto · branch · hora
-# Logo do mascote do Claude no canto. Clicar foca o terminal da sessão
-# (via protocolo claudecodenotify:// -> focus.ps1, método seguro AppActivate).
+# Logo do mascote do Claude no canto. Som padrão do Windows.
 #
 # Requisitos: WSL, powershell.exe no PATH, jq.
 
 set -u
 
-PROTOCOL="claudecodenotify"
 MAX_LEN="${CCN_MAX_LEN:-220}"
-LOGO_WIN=""       # preenchido pelo config abaixo
+LOGO_WIN=""       # preenchido pelo config
 CCN_APP_ID=""     # idem
 
 # config gerado pelo install.sh (AppID registrado + caminho Windows da logo)
@@ -40,7 +38,6 @@ cwd="$(get '.cwd')"; [ -z "$cwd" ] && cwd="$PWD"
 
 tjq() { [ -n "$transcript" ] && [ -f "$transcript" ] && jq -rs "$1" "$transcript" 2>/dev/null; }
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' -e "s/'/\&apos;/g"; }
-url_encode() { jq -rn --arg s "$1" '$s|@uri'; }
 
 # --- título ------------------------------------------------------------------
 title="$(tjq '[.[] | select(.type=="ai-title") | .aiTitle] | last // empty')"
@@ -64,27 +61,14 @@ footer="$project"
 [ -n "$branch" ] && [ "$branch" != "HEAD" ] && footer="$footer · ⎇ $branch"
 footer="$footer · $(date +%H:%M)"
 
-# --- monta o XML do toast ----------------------------------------------------
-tenc="$(url_encode "$title")"
-launch="${PROTOCOL}://focus?title=${tenc}"
-
+# --- imagem (logo) -----------------------------------------------------------
 image=""
 if [ -n "$LOGO_WIN" ]; then
   logo_uri="file:///$(printf '%s' "$LOGO_WIN" | sed 's#\\#/#g')"
   image="<image placement=\"appLogoOverride\" src=\"$(xml_escape "$logo_uri")\"/>"
 fi
 
-actions=""
-if [ "$event" = "Notification" ]; then
-  a() { printf '<action content="%s" activationType="protocol" arguments="%s"/>' \
-        "$(xml_escape "$1")" "$(xml_escape "${PROTOCOL}://answer?key=$2&title=${tenc}")"; }
-  # Sim=1 (sempre a 1ª opção) · Sempre=2 (só no prompt de 3 opções) · Não=Esc
-  # (Esc cancela o prompt independente de ter 2 ou 3 opções).
-  actions="<actions>$(a '✅ Sim' 1)$(a '⏭️ Sempre' 2)$(a '🚫 Não' esc)</actions>"
-fi
-
-# som explícito (padrão do Windows). Personalize com CCN_SOUND no ccn.config;
-# use CCN_SOUND=silent para um toast mudo.
+# --- som (configurável via CCN_SOUND; 'silent' = mudo) -----------------------
 sound_src="${CCN_SOUND:-ms-winsoundevent:Notification.Default}"
 if [ "$sound_src" = "silent" ]; then
   audio='<audio silent="true"/>'
@@ -92,7 +76,8 @@ else
   audio="<audio src=\"$(xml_escape "$sound_src")\"/>"
 fi
 
-xml="<toast launch=\"$(xml_escape "$launch")\" activationType=\"protocol\">
+# --- monta e dispara o toast -------------------------------------------------
+xml="<toast>
   <visual><binding template=\"ToastGeneric\">
     ${image}
     <text>$(xml_escape "$title")</text>
@@ -100,7 +85,6 @@ xml="<toast launch=\"$(xml_escape "$launch")\" activationType=\"protocol\">
     <text placement=\"attribution\">$(xml_escape "$footer")</text>
   </binding></visual>
   ${audio}
-  ${actions}
 </toast>"
 
 b64="$(printf '%s' "$xml" | base64 -w0 2>/dev/null || printf '%s' "$xml" | base64 | tr -d '\n')"
