@@ -6,7 +6,7 @@
 # Notification -> "aguardando você", corpo = mensagem do Claude.
 #
 # Extrai do JSON do hook (stdin):
-#   Título = título da sessão (aiTitle)
+#   Título = título da sessão (custom-title renomeado, senão o ai-title)
 #   Corpo  = trecho da resposta / mensagem
 #   Rodapé = projeto · branch · hora
 # Logo do mascote do Claude no canto. Som padrão do Windows.
@@ -39,8 +39,8 @@ cwd="$(get '.cwd')"; [ -z "$cwd" ] && cwd="$PWD"
 tjq() { [ -n "$transcript" ] && [ -f "$transcript" ] && jq -rs "$1" "$transcript" 2>/dev/null; }
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' -e "s/'/\&apos;/g"; }
 
-# --- título ------------------------------------------------------------------
-title="$(tjq '[.[] | select(.type=="ai-title") | .aiTitle] | last // empty')"
+# --- título (custom-title renomeado tem precedência sobre o ai-title) ---------
+title="$(tjq '([.[] | select(.type=="custom-title") | .customTitle] | last) // ([.[] | select(.type=="ai-title") | .aiTitle] | last) // empty')"
 [ -z "$title" ] && title="$(basename "$cwd")"
 
 # --- corpo -------------------------------------------------------------------
