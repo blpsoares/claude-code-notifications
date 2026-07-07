@@ -33,8 +33,15 @@ cp -f "$REPO_DIR/focus.ps1"      "$WIN_DIR_WSL/focus.ps1"
 cp -f "$REPO_DIR/claude-logo.png" "$WIN_DIR_WSL/claude-logo.png"
 ok "Scripts instalados (hook em $HOOKS_DIR, handler em $WIN_DIR_WSL)"
 
-# --- config (caminho da logo p/ o notify.sh) ---------------------------------
-printf "LOGO_WIN='%s'\n" "$LOGO_WIN" > "$CONFIG"
+# --- registra o AppID (AUMID) — sem isso o Windows descarta o toast ----------
+AUMID="Claude.Code.Notifications"
+AUMID_KEY="HKCU\\Software\\Classes\\AppUserModelId\\$AUMID"
+reg.exe add "$AUMID_KEY" /v DisplayName /d "Claude Code" /f >/dev/null
+reg.exe add "$AUMID_KEY" /v IconUri /d "$LOGO_WIN" /f >/dev/null
+ok "AppID '$AUMID' registrado (nome + ícone no Centro de Notificações)"
+
+# --- config (AppID + caminho da logo p/ o notify.sh) -------------------------
+{ printf "CCN_APP_ID='%s'\n" "$AUMID"; printf "LOGO_WIN='%s'\n" "$LOGO_WIN"; } > "$CONFIG"
 ok "Config gravado em $CONFIG"
 
 # --- registra protocolo (clique/botões) --------------------------------------
@@ -47,7 +54,7 @@ ok "Protocolo $PROTOCOL:// registrado (clicar foca o terminal / botões responde
 # --- merge dos hooks no settings.json (idempotente + backup) -----------------
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 cp -f "$SETTINGS" "$SETTINGS.bak.$(date +%s)"
-HOOK_CMD='~/.claude/hooks/ccn-notify.sh'
+HOOK_CMD="$HOOKS_DIR/ccn-notify.sh"
 jq --arg cmd "$HOOK_CMD" '
   def clean(a): (a // []) | map(select(((.hooks // []) | any((.command // "") | test("ccn-notify"))) | not));
   .hooks.Stop         = clean(.hooks.Stop)         + [{"hooks":[{"type":"command","command":$cmd}]}]

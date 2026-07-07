@@ -18,12 +18,15 @@ set -u
 
 PROTOCOL="claudecodenotify"
 MAX_LEN="${CCN_MAX_LEN:-220}"
-APP_ID="Claude Code"
-LOGO_WIN=""   # preenchido pelo config abaixo, se existir
+LOGO_WIN=""       # preenchido pelo config abaixo
+CCN_APP_ID=""     # idem
 
-# config gerado pelo install.sh (caminho Windows da logo, etc.)
+# config gerado pelo install.sh (AppID registrado + caminho Windows da logo)
 CONFIG="${CCN_CONFIG:-$HOME/.claude/hooks/ccn.config}"
 [ -f "$CONFIG" ] && . "$CONFIG"
+
+# AppID DEVE ser um AUMID registrado, senão o Windows descarta o toast.
+APP_ID="${CCN_APP_ID:-Claude.Code.Notifications}"
 
 command -v jq >/dev/null 2>&1 || exit 0
 command -v powershell.exe >/dev/null 2>&1 || exit 0

@@ -81,6 +81,21 @@ prompt. As teclas foram escolhidas para funcionar **tanto no prompt de 2 opçõe
 É **best-effort**: depende do terminal ainda estar no prompt de permissão. Se a
 sessão já tiver seguido em frente, a tecla é ignorada.
 
+## 🩺 Não aparece nada?
+
+Na ordem mais comum:
+
+1. **Notificações silenciadas / Assistente de Foco (Não Perturbe).** É o
+   suspeito nº 1. Vá em **Configurações → Sistema → Notificações**, garanta que
+   estão **ligadas** e que o **Assistente de Foco** está desativado (ou libere o
+   app "Claude Code" na lista de prioridade).
+2. **Config não recarregada.** Se você acabou de instalar, abra o menu
+   **`/hooks`** no Claude Code uma vez (ou reinicie) pra recarregar o
+   `settings.json`.
+3. **AppID.** Este projeto registra o AUMID `Claude.Code.Notifications` para que
+   o Windows aceite e exiba o toast — toasts de AppIDs não registrados são
+   descartados silenciosamente. O `install.sh` já cuida disso.
+
 ## 🗑️ Desinstalar
 
 ```bash

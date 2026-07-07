@@ -19,9 +19,10 @@ if [ -f "$SETTINGS" ]; then
   ok "Hooks removidos do settings.json"
 fi
 
-# desregistra protocolo
+# desregistra protocolo e AppID
 reg.exe delete "HKCU\\Software\\Classes\\$PROTOCOL" /f >/dev/null 2>&1 || true
-ok "Protocolo $PROTOCOL:// desregistrado"
+reg.exe delete "HKCU\\Software\\Classes\\AppUserModelId\\Claude.Code.Notifications" /f >/dev/null 2>&1 || true
+ok "Protocolo $PROTOCOL:// e AppID desregistrados"
 
 # remove script do hook (deixa a logo/handler no Windows; inofensivos)
 rm -f "$HOOKS_DIR/ccn-notify.sh" "$HOOKS_DIR/ccn.config"
