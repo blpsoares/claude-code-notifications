@@ -75,9 +75,34 @@ Depois abra o menu **`/hooks`** (ou reinicie) para recarregar. O instalador é
 
 Adicione as variáveis no `~/.claude/hooks/ccn.config`:
 
-- **Som**: `CCN_SOUND='ms-winsoundevent:Notification.Default'` (padrão). Use
-  `CCN_SOUND=silent` para toast mudo, ou outro
-  [evento de som do Windows](https://learn.microsoft.com/windows/apps/design/shell/tiles-and-notifications/toast-audio).
+### 🔊 Som
+
+**Sons prontos do Windows** via `CCN_SOUND` (padrão: `Notification.Default`):
+
+```bash
+CCN_SOUND='ms-winsoundevent:Notification.IM'          # mensagem
+CCN_SOUND='ms-winsoundevent:Notification.Mail'        # e-mail
+CCN_SOUND='ms-winsoundevent:Notification.Reminder'    # lembrete
+CCN_SOUND='ms-winsoundevent:Notification.SMS'         # SMS
+CCN_SOUND='ms-winsoundevent:Notification.Looping.Alarm'  # alarme (chama atenção)
+CCN_SOUND='ms-winsoundevent:Notification.Looping.Call'   # chamada
+CCN_SOUND=silent                                       # mudo
+```
+
+**Som customizado (qualquer `.wav`)** via `CCN_SOUND_FILE` (aceita caminho
+Windows ou WSL):
+
+```bash
+CCN_SOUND_FILE='C:\Windows\Media\tada.wav'
+CCN_SOUND_FILE='/home/voce/sons/ping.wav'
+```
+
+`CCN_SOUND_FILE` tem prioridade sobre `CCN_SOUND`. (`.wav` — o Windows só toca
+arquivos de som próprios via `<audio>`; o custom é tocado à parte com o
+`SoundPlayer`.)
+
+### Outros
+
 - **Tamanho do trecho**: `CCN_MAX_LEN=120` (padrão `220`).
 
 ## 🩺 Não aparece nada?

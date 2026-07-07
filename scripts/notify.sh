@@ -89,12 +89,20 @@ if [ -n "$LOGO_WIN" ]; then
   image="<image placement=\"appLogoOverride\" src=\"$(xml_escape "$logo_uri")\"/>"
 fi
 
-# --- som (configurável via CCN_SOUND; 'silent' = mudo) -----------------------
-sound_src="${CCN_SOUND:-ms-winsoundevent:Notification.Default}"
-if [ "$sound_src" = "silent" ]; then
-  audio='<audio silent="true"/>'
+# --- som ---------------------------------------------------------------------
+# Prioridade: CCN_SOUND_FILE (.wav custom) > CCN_SOUND (evento do Windows) > padrão.
+# CCN_SOUND=silent deixa mudo. CCN_SOUND_FILE aceita caminho WSL ou Windows.
+custom_wav=""
+if [ -n "${CCN_SOUND_FILE:-}" ]; then
+  case "$CCN_SOUND_FILE" in
+    /*) custom_wav="$(wslpath -w "$CCN_SOUND_FILE" 2>/dev/null)";;
+    *)  custom_wav="$CCN_SOUND_FILE";;
+  esac
+fi
+if [ -n "$custom_wav" ] || [ "${CCN_SOUND:-}" = "silent" ]; then
+  audio='<audio silent="true"/>'   # o wav custom é tocado separadamente
 else
-  audio="<audio src=\"$(xml_escape "$sound_src")\"/>"
+  audio="<audio src=\"$(xml_escape "${CCN_SOUND:-ms-winsoundevent:Notification.Default}")\"/>"
 fi
 
 # --- monta e dispara o toast -------------------------------------------------
@@ -118,5 +126,11 @@ powershell.exe -NoProfile -Command "
 \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('$APP_ID').Show(\$toast)
 " >/dev/null 2>&1
+
+# som custom (.wav): toca destacado, sem bloquear o hook
+if [ -n "$custom_wav" ]; then
+  wav_esc="$(printf '%s' "$custom_wav" | sed "s/'/''/g")"
+  setsid powershell.exe -NoProfile -Command "(New-Object Media.SoundPlayer '$wav_esc').PlaySync()" >/dev/null 2>&1 < /dev/null &
+fi
 
 exit 0
