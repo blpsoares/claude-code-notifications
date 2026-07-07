@@ -52,8 +52,8 @@ O instalador é **idempotente** (pode rodar de novo sem duplicar nada) e faz
 | Peça | Onde fica | Papel |
 |------|-----------|-------|
 | `ccn-notify.sh` | `~/.claude/hooks/` | Hook `Stop`/`Notification`; lê o JSON do evento, extrai os dados e dispara o toast via `powershell.exe`. |
-| `claude-logo.png` | `%LOCALAPPDATA%\claude-code-notifications\` | Logo exibida no toast. |
-| AppID `Claude.Code.Notifications` | registro `HKCU` | AUMID registrado (nome + ícone). **Sem isso o Windows descarta o toast.** |
+| `claude-logo.png` / `anthropic.png` | `%LOCALAPPDATA%\claude-code-notifications\` | Mascote (corpo do toast) e logo Anthropic (ícone do cabeçalho). |
+| AppID `Claude.Code.Notifications` | registro `HKCU` | AUMID registrado (nome "Claude Code" + ícone Anthropic). **Sem isso o Windows descarta o toast.** |
 | hooks `Stop` + `Notification` | `~/.claude/settings.json` | Disparam o hook nos eventos do Claude Code. |
 
 ## ⚙️ Personalização

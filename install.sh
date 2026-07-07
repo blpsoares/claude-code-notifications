@@ -22,20 +22,22 @@ ok "Ambiente WSL + jq + powershell.exe"
 LOCALAPPDATA_WIN="$(powershell.exe -NoProfile -Command '$env:LOCALAPPDATA' 2>/dev/null | tr -d '\r')"
 WIN_DIR_WIN="${LOCALAPPDATA_WIN}\\claude-code-notifications"
 WIN_DIR_WSL="$(wslpath "$LOCALAPPDATA_WIN")/claude-code-notifications"
-LOGO_WIN="${WIN_DIR_WIN}\\claude-logo.png"
+LOGO_WIN="${WIN_DIR_WIN}\\claude-logo.png"      # mascote (corpo do toast)
+HEADER_WIN="${WIN_DIR_WIN}\\anthropic.png"      # logo Anthropic (ícone do AppID)
 
 # --- copia arquivos ----------------------------------------------------------
 mkdir -p "$HOOKS_DIR" "$WIN_DIR_WSL"
 install -m 0755 "$REPO_DIR/notify.sh" "$HOOKS_DIR/ccn-notify.sh"
 cp -f "$REPO_DIR/claude-logo.png" "$WIN_DIR_WSL/claude-logo.png"
-ok "Hook instalado em $HOOKS_DIR (logo em $WIN_DIR_WSL)"
+cp -f "$REPO_DIR/anthropic.png"   "$WIN_DIR_WSL/anthropic.png"
+ok "Hook instalado em $HOOKS_DIR (logos em $WIN_DIR_WSL)"
 
 # --- registra o AppID (AUMID) — sem isso o Windows descarta o toast ----------
 AUMID="Claude.Code.Notifications"
 AUMID_KEY="HKCU\\Software\\Classes\\AppUserModelId\\$AUMID"
 reg.exe add "$AUMID_KEY" /v DisplayName /d "Claude Code" /f >/dev/null
-reg.exe add "$AUMID_KEY" /v IconUri /d "$LOGO_WIN" /f >/dev/null
-ok "AppID '$AUMID' registrado (nome + ícone no Centro de Notificações)"
+reg.exe add "$AUMID_KEY" /v IconUri /d "$HEADER_WIN" /f >/dev/null
+ok "AppID '$AUMID' registrado (nome + ícone Anthropic no cabeçalho)"
 
 # --- config (AppID + caminho da logo p/ o notify.sh) -------------------------
 { printf "CCN_APP_ID='%s'\n" "$AUMID"; printf "LOGO_WIN='%s'\n" "$LOGO_WIN"; } > "$CONFIG"
