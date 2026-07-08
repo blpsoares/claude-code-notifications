@@ -167,6 +167,16 @@ if [ "${CCN_CLICK:-1}" != "0" ]; then
   launch=" launch=\"$(xml_escape "claudecodenotify://focus?title=${tenc}")\" activationType=\"protocol\""
 fi
 
+# botões de resposta no Notification (Sim / Sim sempre / Não). O "Sim sempre"
+# decide no clique: usa a opção "não perguntar" se existir, senão vira um Sim.
+# Desative com CCN_BUTTONS=0.
+actions=""
+if [ "$event" = "Notification" ] && [ "${CCN_BUTTONS:-1}" != "0" ]; then
+  a() { printf '<action content="%s" activationType="protocol" arguments="%s"/>' \
+        "$(xml_escape "$1")" "$(xml_escape "claudecodenotify://answer?key=$2&title=${tenc}")"; }
+  actions="<actions>$(a 'Sim' 1)$(a 'Sim, sempre' always)$(a 'Não' esc)</actions>"
+fi
+
 xml="<toast${launch}>
   <visual><binding template=\"ToastGeneric\">
     ${image}
@@ -175,6 +185,7 @@ xml="<toast${launch}>
     <text placement=\"attribution\">$(xml_escape "$footer")</text>
   </binding></visual>
   ${audio}
+  ${actions}
 </toast>"
 
 b64="$(printf '%s' "$xml" | base64 -w0 2>/dev/null || printf '%s' "$xml" | base64 | tr -d '\n')"

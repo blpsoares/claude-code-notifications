@@ -41,6 +41,7 @@ public class Win {
 
 # 1) Windows Terminal: selecionar a aba pelo título via UI Automation
 $targetHwnd = [IntPtr]::Zero
+$targetWin = $null
 try {
   Add-Type -AssemblyName UIAutomationClient
   Add-Type -AssemblyName UIAutomationTypes
@@ -60,6 +61,7 @@ try {
           $sel.Select()
         } catch { }
         $targetHwnd = [IntPtr]$w.Current.NativeWindowHandle
+        $targetWin = $w
         break
       }
     }
@@ -78,10 +80,30 @@ if ($targetHwnd -ne [IntPtr]::Zero) {
 }
 
 # 3) botão de resposta: com a aba/janela CERTA já em foco, envia a tecla ao prompt.
-#    1 = Sim (1ª opção) · 2 = Sim, sempre (só no prompt de 3 opções) · esc = Não/cancela.
+#    1 = Sim (1ª opção) · esc = Não/cancela.
+#    always = "Sim, sempre": usa a opção "não perguntar de novo" SE ela existir no
+#    prompt (lê o texto do terminal); se só houver Sim/Não, cai num Sim (tecla 1).
 if ($focused -and -not [string]::IsNullOrWhiteSpace($key)) {
   Start-Sleep -Milliseconds 400
   $wsh = New-Object -ComObject WScript.Shell
-  if ($key -eq 'esc')        { $wsh.SendKeys('{ESC}') }
-  elseif ($key -match '^[12]$') { $wsh.SendKeys($key) }
+  $send = $null
+  if ($key -eq 'esc') { $send = '{ESC}' }
+  elseif ($key -eq '1') { $send = '1' }
+  elseif ($key -eq 'always') {
+    $send = '1'   # fallback: Sim
+    try {
+      if ($targetWin) {
+        $tcCond = New-Object System.Windows.Automation.PropertyCondition(
+          [System.Windows.Automation.AutomationElement]::ClassNameProperty, "TermControl")
+        foreach ($tc in $targetWin.FindAll([System.Windows.Automation.TreeScope]::Descendants, $tcCond)) {
+          if (-not $tc.Current.IsOffscreen) {
+            $txt = ($tc.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)).DocumentRange.GetText(-1)
+            if ($txt -match "(?i)don'?t ask again|n[ãa]o perguntar") { $send = '2' }
+            break
+          }
+        }
+      }
+    } catch { }
+  }
+  if ($send) { $wsh.SendKeys($send) }
 }

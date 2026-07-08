@@ -91,6 +91,8 @@ Com o plugin instalado, configure sem editar arquivo:
 /ccn test                dispara um toast de teste
 /ccn threshold 30        só notifica no Stop se a resposta demorou >= 30s
 /ccn duration on|off     mostra/oculta a duração no rodapé
+/ccn buttons on|off      botões Sim / Sim sempre / Não no prompt de permissão
+/ccn click on|off        clicar na notificação foca a aba/janela da sessão
 /ccn sound <nome>        default | silent | im | mail | reminder | alarm | call
 /ccn sound-file <path>   usa um .wav próprio
 ```
@@ -104,6 +106,7 @@ Alternativa ao `/ccn`: as variáveis no `~/.claude/hooks/ccn.config`.
   (padrão `0`, sempre). Não afeta o `Notification`.
 - `CCN_SHOW_DURATION=0` oculta a duração no rodapé.
 - `CCN_CLICK=0` desativa o clique-para-focar.
+- `CCN_BUTTONS=0` desativa os botões de resposta no prompt de permissão.
 - `CCN_ALERT=1` usa um som de alerta distinto (`Alert.wav`) no `Notification`
   (aguardando você). Sem isso, o som é sempre o `Cloud`.
 
@@ -165,10 +168,21 @@ manipulação de foco de baixo nível.
 
 Para desativar o clique, defina `CCN_CLICK=0` no `ccn.config`.
 
-Nota: não há botões de "responder permissão" na notificação — enviar teclas
-para o terminal não é confiável com múltiplas abas (a tecla iria para a aba
-ativa, possivelmente a sessão errada). O clique apenas leva você até a sessão,
-onde você responde normalmente.
+### Botões de resposta (prompt de permissão)
+
+No evento `Notification` (o Claude pedindo permissão), a notificação traz os
+botões **Sim**, **Sim, sempre** e **Não**. Ao clicar, o handler primeiro
+seleciona a aba certa (mesma UI Automation do clique) e só então envia a tecla —
+por isso a resposta vai para a sessão correta, não para a aba que estiver ativa.
+
+- **Sim** envia `1` (a 1ª opção é sempre "sim").
+- **Não** envia `Esc` (cancela em prompts de 2 ou 3 opções).
+- **Sim, sempre** decide no clique: lê o texto do prompt e, se existir a opção
+  "não perguntar de novo", usa ela (`2`); se o prompt só tiver Sim/Não, cai num
+  Sim (`1`). Assim nunca seleciona a opção errada.
+
+É best-effort: depende do prompt ainda estar aberto. Desative com
+`CCN_BUTTONS=0`.
 
 ## Desinstalar
 
