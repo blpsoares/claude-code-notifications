@@ -32,6 +32,8 @@ cp -f "$REPO_DIR/assets/claude-logo.png"  "$WIN_DIR_WSL/claude-logo.png"
 cp -f "$REPO_DIR/assets/anthropic.png"    "$WIN_DIR_WSL/anthropic.png"
 cp -f "$REPO_DIR/assets/sounds/Cloud.wav" "$WIN_DIR_WSL/Cloud.wav"
 cp -f "$REPO_DIR/assets/sounds/Alert.wav" "$WIN_DIR_WSL/Alert.wav"
+cp -f "$REPO_DIR/scripts/focus.ps1"       "$WIN_DIR_WSL/focus.ps1"
+cp -f "$REPO_DIR/scripts/focus.vbs"       "$WIN_DIR_WSL/focus.vbs"
 ok "Hook instalado em $HOOKS_DIR (logos em $WIN_DIR_WSL)"
 
 # --- registra o AppID (AUMID) — sem isso o Windows descarta o toast ----------
@@ -41,11 +43,19 @@ reg.exe add "$AUMID_KEY" /v DisplayName /d "Claude Code" /f >/dev/null
 reg.exe add "$AUMID_KEY" /v IconUri /d "$HEADER_WIN" /f >/dev/null
 ok "AppID '$AUMID' registrado (nome + ícone Anthropic no cabeçalho)"
 
+# --- protocolo do clique (foca a aba/janela da sessão) -----------------------
+PROTO_CMD="wscript.exe \"${WIN_DIR_WIN}\\focus.vbs\" \"%1\""
+reg.exe add "HKCU\\Software\\Classes\\claudecodenotify" /ve /d "URL:Claude Code Notify" /f >/dev/null
+reg.exe add "HKCU\\Software\\Classes\\claudecodenotify" /v "URL Protocol" /d "" /f >/dev/null
+reg.exe add "HKCU\\Software\\Classes\\claudecodenotify\\shell\\open\\command" /ve /d "$PROTO_CMD" /f >/dev/null
+ok "Clique na notificação foca a aba/janela da sessão"
+
 # --- config (AppID + caminho da logo p/ o notify.sh) -------------------------
 { printf "CCN_APP_ID='%s'\n" "$AUMID"
   printf "LOGO_WIN='%s'\n" "$LOGO_WIN"
   printf "CCN_DEFAULT_WAV='%s'\n" "${WIN_DIR_WIN}\\Cloud.wav"
-  printf "CCN_ALERT_WAV='%s'\n" "${WIN_DIR_WIN}\\Alert.wav"; } > "$CONFIG"
+  printf "CCN_ALERT_WAV='%s'\n" "${WIN_DIR_WIN}\\Alert.wav"
+  printf "CCN_FOCUS=1\n"; } > "$CONFIG"
 ok "Config gravado em $CONFIG"
 
 # --- merge dos hooks no settings.json (idempotente + backup) -----------------

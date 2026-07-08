@@ -21,6 +21,8 @@ sessão, um trecho da resposta e a logo do mascote.
 - Som distinto por evento: `Cloud` ao terminar, `Alert` ao aguardar você.
 - Tempo da resposta no rodapé (ex.: `2m30s`).
 - Filtro por duração: opcionalmente só notifica respostas que demoraram.
+- Clicar na notificação foca a aba/janela da sessão (Windows Terminal via UI
+  Automation, pelo título; fallback para outras janelas).
 - Comando `/ccn` para configurar tudo sem editar arquivo.
 
 Dispara em dois momentos:
@@ -75,6 +77,7 @@ duplicada.
 | `Cloud.wav` / `Alert.wav` | `%LOCALAPPDATA%\claude-code-notifications\` | Sons padrão: `Cloud` ao terminar, `Alert` ao aguardar você. |
 | `scripts/ccn-config.sh` + `commands/ccn.md` | plugin | Implementam o comando `/ccn`. |
 | AppID `Claude.Code.Notifications` | registro `HKCU` | AUMID registrado (nome "Claude Code" + ícone Anthropic). Sem isso o Windows descarta o toast. |
+| `focus.ps1` / `focus.vbs` + protocolo `claudecodenotify://` | `%LOCALAPPDATA%\...` e `HKCU` | Clique na notificação foca a aba/janela da sessão. |
 | `hooks/hooks.json` | plugin | Registra `Stop` + `Notification` automaticamente. No modo manual, vão para `~/.claude/settings.json`. |
 
 ## Comando `/ccn`
@@ -99,6 +102,7 @@ Alternativa ao `/ccn`: as variáveis no `~/.claude/hooks/ccn.config`.
 - `CCN_MIN_SECONDS=30` no `Stop`, só notifica se a resposta demorou >= 30s
   (padrão `0`, sempre). Não afeta o `Notification`.
 - `CCN_SHOW_DURATION=0` oculta a duração no rodapé.
+- `CCN_CLICK=0` desativa o clique-para-focar.
 
 ### Som
 
@@ -142,14 +146,26 @@ Na ordem mais comum:
 3. AppID. O instalador registra o AUMID `Claude.Code.Notifications` para que o
    Windows aceite o toast; toasts de AppID não registrado são descartados.
 
-## Clicar na notificação para focar o terminal ou responder permissão
+## Clicar na notificação para ir até a sessão
 
-Foi avaliado e removido de propósito. O Windows Terminal roda todas as abas numa
-única janela e não expõe API para ativar uma aba específica; só é possível focar
-a janela, não a aba. Além disso, botões de resposta enviariam a tecla para a aba
-que estivesse ativa, podendo responder a sessão errada. Por segurança e
-confiabilidade, o projeto foca no que funciona de forma consistente: avisar você
-na hora certa.
+Clicar no toast foca a aba/janela da sessão que disparou a notificação. Como
+funciona:
+
+- No Windows Terminal, a aba certa é localizada pelo título (o Claude escreve o
+  nome da sessão no título da aba) via UI Automation e selecionada por API,
+  independente da posição da aba. Depois a janela é trazida para frente.
+- Fora do Windows Terminal (ex.: terminal integrado do VS Code), há um fallback
+  que foca a janela cujo título contém o nome da sessão.
+
+O clique usa apenas APIs seguras (UI Automation e ativação de janela), sem
+manipulação de foco de baixo nível.
+
+Para desativar o clique, defina `CCN_CLICK=0` no `ccn.config`.
+
+Nota: não há botões de "responder permissão" na notificação — enviar teclas
+para o terminal não é confiável com múltiplas abas (a tecla iria para a aba
+ativa, possivelmente a sessão errada). O clique apenas leva você até a sessão,
+onde você responde normalmente.
 
 ## Desinstalar
 

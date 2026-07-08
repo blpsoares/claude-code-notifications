@@ -35,7 +35,7 @@ command -v powershell.exe >/dev/null 2>&1 || exit 0
 
 # --- auto-setup do lado Windows (idempotente; roda 1x por versão de config) ---
 ensure_setup() {
-  [ -f "$CONFIG" ] && grep -q CCN_ALERT_WAV "$CONFIG" && return 0
+  [ -f "$CONFIG" ] && grep -q CCN_FOCUS "$CONFIG" && return 0
   local assets la win_win win_wsl
   assets="${CLAUDE_PLUGIN_ROOT:-}"
   [ -n "$assets" ] && assets="$assets/assets"
@@ -49,12 +49,19 @@ ensure_setup() {
   cp -f "$assets/anthropic.png"       "$win_wsl/anthropic.png"   2>/dev/null
   cp -f "$assets/sounds/Cloud.wav"    "$win_wsl/Cloud.wav"       2>/dev/null
   cp -f "$assets/sounds/Alert.wav"    "$win_wsl/Alert.wav"       2>/dev/null
+  cp -f "$(dirname "${BASH_SOURCE[0]}")/focus.ps1" "$win_wsl/focus.ps1" 2>/dev/null
+  cp -f "$(dirname "${BASH_SOURCE[0]}")/focus.vbs" "$win_wsl/focus.vbs" 2>/dev/null
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v DisplayName /d "Claude Code" /f >/dev/null 2>&1
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v IconUri /d "${win_win}\\anthropic.png" /f >/dev/null 2>&1
+  # protocolo do clique (foca a aba/janela)
+  reg.exe add "HKCU\\Software\\Classes\\claudecodenotify" /ve /d "URL:Claude Code Notify" /f >/dev/null 2>&1
+  reg.exe add "HKCU\\Software\\Classes\\claudecodenotify" /v "URL Protocol" /d "" /f >/dev/null 2>&1
+  reg.exe add "HKCU\\Software\\Classes\\claudecodenotify\\shell\\open\\command" /ve /d "wscript.exe \"${win_win}\\focus.vbs\" \"%1\"" /f >/dev/null 2>&1
   { printf "CCN_APP_ID='%s'\n" "$AUMID"
     printf "LOGO_WIN='%s'\n" "${win_win}\\claude-logo.png"
     printf "CCN_DEFAULT_WAV='%s'\n" "${win_win}\\Cloud.wav"
-    printf "CCN_ALERT_WAV='%s'\n" "${win_win}\\Alert.wav"; } > "$CONFIG"
+    printf "CCN_ALERT_WAV='%s'\n" "${win_win}\\Alert.wav"
+    printf "CCN_FOCUS=1\n"; } > "$CONFIG"
 }
 ensure_setup
 
@@ -74,6 +81,7 @@ cwd="$(get '.cwd')"; [ -z "$cwd" ] && cwd="$PWD"
 
 tjq() { [ -n "$transcript" ] && [ -f "$transcript" ] && jq -rs "$1" "$transcript" 2>/dev/null; }
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' -e "s/'/\&apos;/g"; }
+url_encode() { jq -rn --arg s "$1" '$s|@uri'; }
 
 # --- duração do turno (do último prompt humano até agora; só no Stop) ---------
 turn_secs=""
@@ -146,7 +154,12 @@ else
 fi
 
 # --- monta e dispara o toast -------------------------------------------------
-xml="<toast>
+# clicar foca a aba/janela da sessão (a menos que CCN_CLICK=0)
+launch=""
+if [ "${CCN_CLICK:-1}" != "0" ]; then
+  launch=" launch=\"$(xml_escape "claudecodenotify://focus?title=$(url_encode "$title")")\" activationType=\"protocol\""
+fi
+xml="<toast${launch}>
   <visual><binding template=\"ToastGeneric\">
     ${image}
     <text>$(xml_escape "$title")</text>
