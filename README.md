@@ -18,7 +18,8 @@ sessão, um trecho da resposta e a logo do mascote.
 - Corpo: trecho da última resposta do Claude (ou a mensagem do prompt).
 - Rodapé: projeto, branch git e hora.
 - Mascote do Claude no corpo e logo da Anthropic no cabeçalho.
-- Som distinto por evento: `Cloud` ao terminar, `Alert` ao aguardar você.
+- Som padrão `Cloud` em todos os eventos (só muda se você trocar). Som de alerta
+  distinto ao aguardar você é opcional (`CCN_ALERT=1`).
 - Tempo da resposta no rodapé (ex.: `2m30s`).
 - Filtro por duração: opcionalmente só notifica respostas que demoraram.
 - Clicar na notificação foca a aba/janela da sessão (Windows Terminal via UI
@@ -103,6 +104,8 @@ Alternativa ao `/ccn`: as variáveis no `~/.claude/hooks/ccn.config`.
   (padrão `0`, sempre). Não afeta o `Notification`.
 - `CCN_SHOW_DURATION=0` oculta a duração no rodapé.
 - `CCN_CLICK=0` desativa o clique-para-focar.
+- `CCN_ALERT=1` usa um som de alerta distinto (`Alert.wav`) no `Notification`
+  (aguardando você). Sem isso, o som é sempre o `Cloud`.
 
 ### Som
 

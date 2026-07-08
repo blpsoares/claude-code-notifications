@@ -137,7 +137,12 @@ fi
 # --- som (padrão depende do evento; overrides globais preservados) -----------
 # Prioridade: CCN_SOUND_FILE > CCN_SOUND > som padrão do evento
 # (Stop = Cloud, Notification = Alert). CCN_SOUND=silent deixa mudo.
-if [ "$event" = "Notification" ]; then ev_default="$CCN_ALERT_WAV"; else ev_default="$CCN_DEFAULT_WAV"; fi
+# Padrão único: Cloud para todos os eventos. O som distinto de alerta no
+# Notification é opt-in (CCN_ALERT=1) — sem isso, é SEMPRE o Cloud.
+ev_default="$CCN_DEFAULT_WAV"
+if [ "$event" = "Notification" ] && [ "${CCN_ALERT:-0}" = "1" ] && [ -n "$CCN_ALERT_WAV" ]; then
+  ev_default="$CCN_ALERT_WAV"
+fi
 custom_wav=""
 if [ -n "${CCN_SOUND_FILE:-}" ]; then
   case "$CCN_SOUND_FILE" in
@@ -154,11 +159,14 @@ else
 fi
 
 # --- monta e dispara o toast -------------------------------------------------
+tenc="$(url_encode "$title")"
+
 # clicar foca a aba/janela da sessão (a menos que CCN_CLICK=0)
 launch=""
 if [ "${CCN_CLICK:-1}" != "0" ]; then
-  launch=" launch=\"$(xml_escape "claudecodenotify://focus?title=$(url_encode "$title")")\" activationType=\"protocol\""
+  launch=" launch=\"$(xml_escape "claudecodenotify://focus?title=${tenc}")\" activationType=\"protocol\""
 fi
+
 xml="<toast${launch}>
   <visual><binding template=\"ToastGeneric\">
     ${image}
