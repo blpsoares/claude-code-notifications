@@ -55,7 +55,7 @@ ok "Clique na notificação foca a aba/janela da sessão"
   printf "LOGO_WIN='%s'\n" "$LOGO_WIN"
   printf "CCN_DEFAULT_WAV='%s'\n" "${WIN_DIR_WIN}\\Cloud.wav"
   printf "CCN_ALERT_WAV='%s'\n" "${WIN_DIR_WIN}\\Alert.wav"
-  printf "CCN_FOCUS=1\n"; } > "$CONFIG"
+  printf "CCN_VER='%s'\n" "$(jq -r '.version // "0"' "$REPO_DIR/.claude-plugin/plugin.json" 2>/dev/null || echo 0)"; } > "$CONFIG"
 ok "Config gravado em $CONFIG"
 
 # --- merge dos hooks no settings.json (idempotente + backup) -----------------

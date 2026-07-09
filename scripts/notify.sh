@@ -33,35 +33,43 @@ AUMID="Claude.Code.Notifications"
 command -v jq >/dev/null 2>&1 || exit 0
 command -v powershell.exe >/dev/null 2>&1 || exit 0
 
-# --- auto-setup do lado Windows (idempotente; roda 1x por versão de config) ---
+# --- auto-setup do lado Windows (re-roda quando a versão do plugin muda) ------
+# atualiza só as chaves gerenciadas, preservando as configs do usuário.
+ccn_set() {  # ccn_set CHAVE VALOR  (no arquivo $CONFIG)
+  touch "$CONFIG"
+  grep -v "^$1=" "$CONFIG" > "$CONFIG.tmp" 2>/dev/null || true
+  printf "%s='%s'\n" "$1" "$2" >> "$CONFIG.tmp"
+  mv "$CONFIG.tmp" "$CONFIG"
+}
 ensure_setup() {
-  [ -f "$CONFIG" ] && grep -q CCN_FOCUS "$CONFIG" && return 0
-  local assets la win_win win_wsl
-  assets="${CLAUDE_PLUGIN_ROOT:-}"
-  [ -n "$assets" ] && assets="$assets/assets"
-  [ -d "$assets" ] || assets="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/assets"
+  local here assets ver curver la win_win win_wsl
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  assets="${CLAUDE_PLUGIN_ROOT:-$here/..}/assets"
+  [ -d "$assets" ] || assets="$here/../assets"
+  ver="$(jq -r '.version // "0"' "${CLAUDE_PLUGIN_ROOT:-$here/..}/.claude-plugin/plugin.json" 2>/dev/null || echo 0)"
+  curver="$([ -f "$CONFIG" ] && sed -n "s/^CCN_VER='\(.*\)'$/\1/p" "$CONFIG" | tail -1)"
+  [ -n "$curver" ] && [ "$curver" = "$ver" ] && return 0   # já configurado nesta versão
   la="$(powershell.exe -NoProfile -Command '$env:LOCALAPPDATA' 2>/dev/null | tr -d '\r')"
   [ -z "$la" ] && return 0
   win_win="${la}\\claude-code-notifications"
   win_wsl="$(wslpath "$la" 2>/dev/null)/claude-code-notifications"
   mkdir -p "$win_wsl" "$(dirname "$CONFIG")" 2>/dev/null
-  cp -f "$assets/claude-logo.png"     "$win_wsl/claude-logo.png" 2>/dev/null
-  cp -f "$assets/anthropic.png"       "$win_wsl/anthropic.png"   2>/dev/null
-  cp -f "$assets/sounds/Cloud.wav"    "$win_wsl/Cloud.wav"       2>/dev/null
-  cp -f "$assets/sounds/Alert.wav"    "$win_wsl/Alert.wav"       2>/dev/null
-  cp -f "$(dirname "${BASH_SOURCE[0]}")/focus.ps1" "$win_wsl/focus.ps1" 2>/dev/null
-  cp -f "$(dirname "${BASH_SOURCE[0]}")/focus.vbs" "$win_wsl/focus.vbs" 2>/dev/null
+  cp -f "$assets/claude-logo.png"  "$win_wsl/claude-logo.png" 2>/dev/null
+  cp -f "$assets/anthropic.png"    "$win_wsl/anthropic.png"   2>/dev/null
+  cp -f "$assets/sounds/Cloud.wav" "$win_wsl/Cloud.wav"       2>/dev/null
+  cp -f "$assets/sounds/Alert.wav" "$win_wsl/Alert.wav"       2>/dev/null
+  cp -f "$here/focus.ps1"          "$win_wsl/focus.ps1"       2>/dev/null
+  cp -f "$here/focus.vbs"          "$win_wsl/focus.vbs"       2>/dev/null
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v DisplayName /d "Claude Code" /f >/dev/null 2>&1
   reg.exe add "HKCU\\Software\\Classes\\AppUserModelId\\$AUMID" /v IconUri /d "${win_win}\\anthropic.png" /f >/dev/null 2>&1
-  # protocolo do clique (foca a aba/janela)
   reg.exe add "HKCU\\Software\\Classes\\claudecodenotify" /ve /d "URL:Claude Code Notify" /f >/dev/null 2>&1
   reg.exe add "HKCU\\Software\\Classes\\claudecodenotify" /v "URL Protocol" /d "" /f >/dev/null 2>&1
   reg.exe add "HKCU\\Software\\Classes\\claudecodenotify\\shell\\open\\command" /ve /d "wscript.exe \"${win_win}\\focus.vbs\" \"%1\"" /f >/dev/null 2>&1
-  { printf "CCN_APP_ID='%s'\n" "$AUMID"
-    printf "LOGO_WIN='%s'\n" "${win_win}\\claude-logo.png"
-    printf "CCN_DEFAULT_WAV='%s'\n" "${win_win}\\Cloud.wav"
-    printf "CCN_ALERT_WAV='%s'\n" "${win_win}\\Alert.wav"
-    printf "CCN_FOCUS=1\n"; } > "$CONFIG"
+  ccn_set CCN_APP_ID "$AUMID"
+  ccn_set LOGO_WIN "${win_win}\\claude-logo.png"
+  ccn_set CCN_DEFAULT_WAV "${win_win}\\Cloud.wav"
+  ccn_set CCN_ALERT_WAV "${win_win}\\Alert.wav"
+  ccn_set CCN_VER "$ver"
 }
 ensure_setup
 
