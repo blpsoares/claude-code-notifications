@@ -1,10 +1,12 @@
 # claude-code-notifications - focus.ps1
-# Acionado pelo protocolo claudecodenotify://focus?title=<enc> ao clicar no toast.
-# Foca a ABA certa do Windows Terminal pelo título (UI Automation), RESTAURA a
-# janela se estiver minimizada e a traz para frente de forma confiável mesmo
-# sendo chamado por um processo em background (handler do protocolo).
-# Fallback: qualquer janela cujo título contenha o título da sessão (VS Code,
-# conhost, etc.). Sem AttachThreadInput. NUNCA encerra processos.
+# Acionado pelo protocolo claudecodenotify:// ao clicar no toast/botões.
+#   focus?title=<enc>            -> foca a aba/janela da sessão
+#   answer?key=<1|always|esc>    -> foca e responde o prompt de permissão
+#
+# Seleciona a aba certa do Windows Terminal pelo título (UI Automation) e traz a
+# janela para frente (foco seguro, sem AttachThreadInput). Para os botões, envia
+# a tecla ao prompt com keybd_event (evento de teclado real, chega no terminal).
+# Fallback: janela cujo título contenha o título da sessão. NUNCA encerra processos.
 param([string]$Uri)
 
 $title = ""
@@ -13,9 +15,6 @@ $key = ""
 if ($Uri -match 'key=([^&]*)')   { $key   = [System.Uri]::UnescapeDataString($matches[1]) }
 if ([string]::IsNullOrWhiteSpace($title)) { exit }
 
-# Helpers Win32: restaurar (se minimizada) + trazer para frente. O "toque de ALT"
-# destrava a restrição de foreground do Windows para processos em background,
-# sem precisar de AttachThreadInput (que pode travar se a thread-alvo estiver presa).
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -30,11 +29,20 @@ public class Win {
   const uint KEYEVENTF_KEYUP = 0x2;
   public static void Focus(IntPtr h) {
     if (h == IntPtr.Zero) return;
-    if (IsIconic(h)) { ShowWindow(h, SW_RESTORE); }   // restaura sem alterar posição
-    keybd_event(VK_MENU, 0, 0, IntPtr.Zero);          // ALT down
-    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, IntPtr.Zero); // ALT up
+    if (IsIconic(h)) { ShowWindow(h, SW_RESTORE); }
+    keybd_event(VK_MENU, 0, 0, IntPtr.Zero);          // "toque de ALT" destrava o foreground
+    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
     BringWindowToTop(h);
     SetForegroundWindow(h);
+  }
+  public static void SendDigit(char c) {
+    byte vk = (byte)c;                                 // '1'=0x31, '2'=0x32
+    keybd_event(vk, 0, 0, IntPtr.Zero);
+    keybd_event(vk, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+  }
+  public static void SendEsc() {
+    keybd_event(0x1B, 0, 0, IntPtr.Zero);
+    keybd_event(0x1B, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
   }
 }
 "@ | Out-Null
@@ -53,13 +61,9 @@ try {
     [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
     [System.Windows.Automation.ControlType]::TabItem)
   foreach ($w in $wins) {
-    $tabs = $w.FindAll([System.Windows.Automation.TreeScope]::Descendants, $tabCond)
-    foreach ($t in $tabs) {
+    foreach ($t in $w.FindAll([System.Windows.Automation.TreeScope]::Descendants, $tabCond)) {
       if ($t.Current.Name -like "*$title*") {
-        try {
-          $sel = $t.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-          $sel.Select()
-        } catch { }
+        try { $t.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select() } catch {}
         $targetHwnd = [IntPtr]$w.Current.NativeWindowHandle
         $targetWin = $w
         break
@@ -69,28 +73,26 @@ try {
   }
 } catch { }
 
-# 2) trazer a janela para frente (restaura se minimizada)
+# 2) trazer a janela para frente
 $focused = $false
 if ($targetHwnd -ne [IntPtr]::Zero) {
   [Win]::Focus($targetHwnd); $focused = $true
 } else {
-  # fallback: janela cujo título contém o título da sessão
   $p = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "*$title*" } | Select-Object -First 1
   if ($p) { [Win]::Focus($p.MainWindowHandle); $focused = $true }
 }
 
-# 3) botão de resposta: com a aba/janela CERTA já em foco, envia a tecla ao prompt.
+# 3) resposta ao prompt de permissão
 #    1 = Sim (1ª opção) · esc = Não/cancela.
-#    always = "Sim, sempre": usa a opção "não perguntar de novo" SE ela existir no
-#    prompt (lê o texto do terminal); se só houver Sim/Não, cai num Sim (tecla 1).
+#    always = "Sim, sempre": usa a opção "não perguntar de novo" SE existir no
+#    prompt (lê o texto do terminal); senão, cai num Sim (tecla 1).
 if ($focused -and -not [string]::IsNullOrWhiteSpace($key)) {
-  Start-Sleep -Milliseconds 400
-  $wsh = New-Object -ComObject WScript.Shell
+  Start-Sleep -Milliseconds 500
   $send = $null
-  if ($key -eq 'esc') { $send = '{ESC}' }
+  if ($key -eq 'esc') { $send = 'esc' }
   elseif ($key -eq '1') { $send = '1' }
   elseif ($key -eq 'always') {
-    $send = '1'   # fallback: Sim
+    $send = '1'
     try {
       if ($targetWin) {
         $tcCond = New-Object System.Windows.Automation.PropertyCondition(
@@ -105,5 +107,6 @@ if ($focused -and -not [string]::IsNullOrWhiteSpace($key)) {
       }
     } catch { }
   }
-  if ($send) { $wsh.SendKeys($send) }
+  if ($send -eq 'esc') { [Win]::SendEsc() }
+  elseif ($send) { [Win]::SendDigit([char]$send[0]) }
 }
